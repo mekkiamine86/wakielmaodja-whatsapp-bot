@@ -1,6 +1,6 @@
 /**
  * ============================================================
- * KIMLAND DZ — WhatsApp Business AI Bot v2.0
+ * واقع الموجة — WhatsApp Business AI Bot v2.0
  * Langue principale : Darija (عربية جزائرية) + Français
  * IA : Claude claude-opus-4-6 — Expert Closing COD Algérie
  * Stack : Node.js + Express + WhatsApp Cloud API (Meta)
@@ -132,7 +132,7 @@ const STAGES = {
 const MSGS = {
 
   welcome: (name) =>
-`🌟 أهلاً وسهلاً ${name ? `*${name}*` : ''} في *KIMLAND DZ* !
+`🌟 أهلاً وسهلاً ${name ? `*${name}*` : ''} في *واقع الموجة* !
 
 واش تحب تعمل اليوم؟
 
@@ -276,7 +276,7 @@ ${getUrgencyLine()}
 لتتبع طلبيتك إكتب:
 📦 *تتبع ${orderId}*
 
-شكراً على ثقتك في KIMLAND DZ ❤️
+شكراً على ثقتك في واقع الموجة ❤️
 نراك قريباً! 🙏`,
 
   trackOrder: (order) => {
@@ -345,7 +345,7 @@ ${order.trackingCode ? `\n🔢 كود التتبع Yalidine : *${order.trackingC
 
 // ─── SYSTÈME PROMPT IA DARIJA — EXPERT CLOSING ───────────────
 function buildSystemPrompt(productContext) {
-  return `أنت مساعد مبيعات ذكي لمتجر KIMLAND DZ الجزائري. اسمك "كيم".
+  return `أنت مساعد مبيعات ذكي لمتجر واقع الموجة الجزائري. اسمك "كيم".
 
 🎯 مهمتك الأولى: إقناع العميل بالشراء واتمام الطلبية.
 
@@ -867,7 +867,7 @@ app.post('/admin/orders/:id/status', async (req, res) => {
   const statusMessages = {
     confirmed: `✅ *طلبيتك ${order.id} تم تأكيدها!*\nسيتم تحضيرها وإرسالها في أقرب وقت 📦`,
     shipped  : `🚚 *طلبيتك ${order.id} في الطريق!*\n${trackingCode ? `كود التتبع: *${trackingCode}*\n` : ''}توقع الاستلام خلال 24-48 ساعة ⏰`,
-    delivered: `🎉 *تم التسليم بنجاح!*\nشكراً على ثقتك في KIMLAND DZ ❤️\nشاركنا رأيك بكتابة *تقييم* 🌟`,
+    delivered: `🎉 *تم التسليم بنجاح!*\nشكراً على ثقتك في واقع الموجة ❤️\nشاركنا رأيك بكتابة *تقييم* 🌟`,
     cancelled: `❌ *طلبيتك ${order.id} تم إلغاؤها.*\nللاستفسار اكتب *4* للتحدث مع مستشار.`
   };
 
@@ -909,7 +909,7 @@ app.get('/health', (req, res) => res.json({
 app.listen(CONFIG.PORT, () => {
   console.log(`
 ╔══════════════════════════════════════════════╗
-║   🤖 KIMLAND DZ WhatsApp Bot v2.0 — ACTIF   ║
+║   🤖 واقع الموجة WhatsApp Bot v2.0 — ACTIF   ║
 ╠══════════════════════════════════════════════╣
 ║  Port      : ${CONFIG.PORT}                            ║
 ║  Langue    : Darija (عربية جزائرية) + FR    ║
