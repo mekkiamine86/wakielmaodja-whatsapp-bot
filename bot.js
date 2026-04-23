@@ -27,6 +27,147 @@ const CONFIG = {
   PORT        : process.env.PORT || 3000
 };
 
+// ─── KIMLAND AUTO-REGISTRATION MODULE ───────────────────────
+const KIMLAND = {
+  base   : 'https://kimland.dz/app/client',
+  user   : process.env.KIMLAND_USER || '',
+  pass   : process.env.KIMLAND_PASS || '',
+  cookies: '',
+
+  WILAYAS: {
+    'أدرار':1,'الشلف':2,'الأغواط':3,'أم البواقي':4,'باتنة':5,
+    'بجاية':6,'بسكرة':7,'بشار':8,'البليدة':9,'البويرة':10,
+    'تمنراست':11,'تبسة':12,'تلمسان':13,'تيارت':14,'تيزي وزو':15,
+    'الجزائر':16,'الجلفة':17,'جيجل':18,'سطيف':19,'سعيدة':20,
+    'سكيكدة':21,'سيدي بلعباس':22,'عنابة':23,'قالمة':24,
+    'قسنطينة':25,'المدية':26,'مستغانم':27,'المسيلة':28,
+    'معسكر':29,'ورقلة':30,'وهران':31,'البيض':32,'إليزي':33,
+    'برج بوعريريج':34,'بومرداس':35,'الطارف':36,'تندوف':37,
+    'تيسمسيلت':38,'الوادي':39,'خنشلة':40,'سوق أهراس':41,
+    'تيبازة':42,'ميلة':43,'عين الدفلى':44,'النعامة':45,
+    'عين تيموشنت':46,'غرداية':47,'غليزان':48,
+    'تيميمون':49,'برج باجي مختار':50,'أولاد جلال':51,
+    'بني عباس':52,'عين صالح':53,'عين قزام':54,'تقرت':55,
+    'جانت':56,'المغير':57,'المنيعة':58,
+    'adrar':1,'chlef':2,'laghouat':3,'oum el bouaghi':4,
+    'batna':5,'bejaia':6,'bjaia':6,'biskra':7,'bechar':8,
+    'blida':9,'bouira':10,'tamanrasset':11,'tebessa':12,
+    'tlemcen':13,'tiaret':14,'tizi ouzou':15,'alger':16,
+    'djelfa':17,'jijel':18,'setif':19,'saida':20,
+    'skikda':21,'sidi bel abbes':22,'annaba':23,'guelma':24,
+    'constantine':25,'medea':26,'mostaganem':27,'msila':28,
+    'mascara':29,'ouargla':30,'oran':31,'el bayadh':32,
+    'illizi':33,'bba':34,'boumerdes':35,'el tarf':36,
+    'tindouf':37,'tissemsilt':38,'el oued':39,'khenchela':40,
+    'souk ahras':41,'tipaza':42,'mila':43,'ain defla':44,
+    'naama':45,'ain temouchent':46,'ghardaia':47,'relizane':48,
+    'dzair':16,'dzayer':16,'wahran':31,'tizi':15,
+  },
+
+  resolveWilaya(name) {
+    if (!name) return null;
+    const k = name.trim().toLowerCase()
+      .replace(/[أإآ]/g,'ا').replace(/[ةه]/g,'ه').replace(/ى/g,'ي')
+      .replace(/\s+/g,' ');
+    if (this.WILAYAS[k]) return this.WILAYAS[k];
+    for (const [key, val] of Object.entries(this.WILAYAS)) {
+      if (k.includes(key) || key.includes(k)) return val;
+    }
+    return null;
+  },
+
+  formatPhone(phone) {
+    const s = String(phone || '');
+    if (s.startsWith('213')) return '0' + s.slice(3);
+    if (s.startsWith('+213')) return '0' + s.slice(4);
+    if (s.startsWith('0')) return s;
+    return '0' + s;
+  },
+
+  async req(path, opts = {}) {
+    const url = this.base + path;
+    const headers = {
+      'User-Agent'  : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+      'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+      'X-Requested-With': 'XMLHttpRequest',
+      ...(this.cookies ? { Cookie: this.cookies } : {}),
+      ...(opts.headers || {})
+    };
+    const resp = await axios({
+      url, method: opts.method || 'GET', headers,
+      data: opts.data, maxRedirects: 5,
+      validateStatus: s => s < 500
+    });
+    const sc = resp.headers['set-cookie'];
+    if (sc) this.cookies = sc.map(c => c.split(';')[0]).join('; ');
+    return resp;
+  },
+
+  parseToken(html) {
+    const m = html.match(/name=["']token["'][^>]*value=["']([a-f0-9]{32,128})["']/i)
+           || html.match(/value=["']([a-f0-9]{32,128})["'][^>]*name=["']token["']/i)
+           || html.match(/"token"\s*:\s*"([a-f0-9]{32,128})"/i);
+    return m ? m[1] : null;
+  },
+
+  async login() {
+    if (!this.user || !this.pass) return false;
+    const page = await this.req('/', { headers: { 'X-Requested-With': '' } });
+    const tok = this.parseToken(page.data);
+    const params = new URLSearchParams({
+      user: this.user, password: this.pass,
+      username: this.user, ...(tok ? { token: tok } : {})
+    });
+    await this.req('/login/', { method: 'POST', data: params.toString() });
+    const check = await this.req('/App/Content/views/clients.php');
+    const ok = check.status === 200 && check.data.length > 500;
+    console.log(`[Kimland] login: ${ok ? '✅ OK' : '❌ FAILED'}`);
+    return ok;
+  },
+
+  async getToken() {
+    const r = await this.req('/App/Content/views/clients.php');
+    return this.parseToken(r.data);
+  },
+
+  async getFirstCommune(wilayaId) {
+    const p = new URLSearchParams({ wilaya: String(wilayaId) });
+    const r = await this.req('/App/Control/commande/select_commune.php',
+      { method: 'POST', data: p.toString() });
+    const m = String(r.data).match(/value=["'](\d+)["']/);
+    return m ? m[1] : '1';
+  },
+
+  async registerClient(order) {
+    if (!this.user || !this.pass) {
+      console.log('[Kimland] Pas de credentials. Skip.');
+      return;
+    }
+    const wilayaId = this.resolveWilaya(order.wilaya);
+    if (!wilayaId) { console.error(`[Kimland] Wilaya introuvable: "${order.wilaya}"`); return; }
+    let token = await this.getToken();
+    if (!token) {
+      const ok = await this.login();
+      if (!ok) return;
+      token = await this.getToken();
+    }
+    if (!token) { console.error('[Kimland] Impossible d\'obtenir le token CSRF'); return; }
+    const commune = await this.getFirstCommune(wilayaId);
+    const phone   = this.formatPhone(order.phone);
+    const parts   = (order.name || 'Client').trim().split(/\s+/);
+    const nom     = parts[0];
+    const prenom  = parts.slice(1).join(' ') || '.';
+    const params = new URLSearchParams({
+      nom, prenom, tel1: phone, tel2: '',
+      adresse: order.address || '.', commune,
+      frais: String(order.livraison || 0), email: '', token
+    });
+    const resp = await this.req('/App/Control/commande/newcommande_valid.php',
+      { method: 'POST', data: params.toString() });
+    console.log(`[Kimland] ✅ Client enregistré: ${nom} | wilaya=${wilayaId} | status=${resp.status}`);
+  }
+};
+
 // ─── CATALOGUE ────────────────────────────────────────────────
 const PRODUCTS = {
   '1': {
@@ -701,6 +842,11 @@ async function handleMessage(phone, text, profileName) {
           trackingCode: null
         };
         orders.set(orderId, order);
+
+        // ── Auto-enregistrement sur Kimland.dz ─────────────────
+        KIMLAND.registerClient(order).catch(err =>
+          console.error('[Kimland] Erreur enregistrement:', err.message)
+        );
 
         // Alerte propriétaire avec détail livraison
         await notifyOwner(
