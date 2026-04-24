@@ -492,10 +492,8 @@ function getSession(phone) {
 }
 
 function isBusinessHours() {
-  // Heure Algérie (UTC+1)
-  const now = new Date();
-  const algeriaHour = (now.getUTCHours() + 1) % 24;
-  return algeriaHour >= 8 && algeriaHour < 22;
+  // 24h/24 — 7j/7 (paramètre WhatsApp mis à jour)
+  return true;
 }
 
 function detectLang(text) {
@@ -608,11 +606,6 @@ async function handleMessage(phone, text, profileName) {
     // ── MENU / ACCUEIL ───────────────────────────────────────
     case STAGES.NEW:
     case STAGES.MENU: {
-      // Premier contact hors horaires
-      if (session.stage === STAGES.NEW && !isBusinessHours()) {
-        session.stage = STAGES.MENU;
-        return sendMessage(phone, MSGS.outOfHours());
-      }
       session.stage = STAGES.MENU;
 
       if (msg === '1') {
