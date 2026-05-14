@@ -999,7 +999,155 @@ app.get('/health', (req, res) => res.json({
 }));
 
 // ─── START ────────────────────────────────────────────────────
-app.listen(CONFIG.PORT, () => {
+// ════════════════════════════════════════════════════════════
+// 🚀 WAKIELMAODJA — Endpoint Landing Pages CPA (iTAG)
+// ════════════════════════════════════════════════════════════
+
+// CORS pour autoriser les LPs hostées sur n'importe quel domaine
+app.use((req, res, next) => {
+  if (req.path.startsWith('/new-order-wakielmaodja') || req.path.startsWith('/admin')) {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type');
+    if (req.method === 'OPTIONS') return res.sendStatus(200);
+  }
+  next();
+});
+
+// Anti-doublon: tel client → timestamp dernière commande
+const wakielmaodjaAntiDup = new Map();
+
+app.post('/new-order-wakielmaodja', async (req, res) => {
+  try {
+    const data = req.body || {};
+
+    // Validation
+    if (!data.nom || !data.telephone || !data.wilaya) {
+      return res.status(400).json({
+        success: false,
+        error: 'Champs manquants: nom, telephone, wilaya'
+      });
+    }
+
+    // Anti-doublon 5 min (même téléphone)
+    const phoneKey = String(data.telephone).trim();
+    const lastTime = wakielmaodjaAntiDup.get(phoneKey);
+    if (lastTime && Date.now() - lastTime < 5 * 60 * 1000) {
+      return res.json({
+        success: true,
+        order_id: 'DUPLICATE',
+        message: 'Commande déjà reçue, on te rappelle',
+        duplicate: true
+      });
+    }
+    wakielmaodjaAntiDup.set(phoneKey, Date.now());
+
+    // Génération Order ID Wakielmaodja
+    const now = new Date();
+    const yy = String(now.getFullYear()).slice(-2);
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const rnd = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const orderId = `WM${yy}${mm}${dd}-${rnd}`;
+
+    // Sauvegarde dans Map orders (consultable via /admin/orders)
+    const order = {
+      id: orderId,
+      brand: 'Wakielmaodja',
+      product: 'iTAG Smart Tracker',
+      productNum: 'WM-ITAG',
+      lpSource: data.lp_source || 'unknown',
+      name: data.nom,
+      phone: data.telephone,
+      wilaya: data.wilaya,
+      commune: data.commune || '',
+      address: data.commune || '',
+      qty: data.quantite || 1,
+      subTotal: 2999 * (data.quantite || 1),
+      livraisonType: data.livraison || 'domicile', // 'domicile' ou 'stopdesk'
+      total: data.prix_total || (2999 * (data.quantite || 1)),
+      delai: '24-48h',
+      status: 'pending',
+      createdAt: Date.now(),
+      trackingCode: null,
+      notes: data.notes || ''
+    };
+    orders.set(orderId, order);
+
+    // 📱 NOTIFICATION WhatsApp à Amine (son natif WhatsApp sur ton tél)
+    const cleanPhone = String(data.telephone).replace(/[^0-9]/g, '');
+    const callableLink = cleanPhone.startsWith('213')
+      ? `+${cleanPhone}`
+      : `+213${cleanPhone.replace(/^0/, '')}`;
+
+    const livraisonLabel = (data.livraison === 'stopdesk') ? '📍 Stop Desk (point relais)' : '🏠 À domicile';
+
+    const notifMsg =
+      `🆕 *طلب جديد — Wakielmaodja* 🇩🇿\n` +
+      `━━━━━━━━━━━━━━━\n` +
+      `📋 Order: *${orderId}*\n` +
+      `👤 ${data.nom}\n` +
+      `📞 ${callableLink}\n` +
+      `📍 ${data.wilaya}${data.commune ? ' — ' + data.commune : ''}\n` +
+      `🚚 ${livraisonLabel}\n` +
+      `📦 iTAG x${data.quantite || 1}\n` +
+      `💰 *${(data.prix_total || 2999).toLocaleString('fr-DZ')} DA*\n` +
+      `🎯 Source: ${data.lp_source || 'inconnu'}\n` +
+      `━━━━━━━━━━━━━━━\n` +
+      `📞 *Action: appeler le client*`;
+
+    await notifyOwner(notifMsg);
+
+    return res.json({
+      success: true,
+      order_id: orderId,
+      message: 'سنتصل بك للتأكيد'
+    });
+
+  } catch (error) {
+    console.error('❌ Wakielmaodja order error:', error.message);
+    return res.status(500).json({
+      success: false,
+      error: 'Erreur serveur, réessaye ou contacte WhatsApp'
+    });
+  }
+});
+
+// GET pour tester que l'endpoint est live
+app.get('/new-order-wakielmaodja', (req, res) => {
+  res.json({
+    status: 'Wakielmaodja CPA endpoint actif ✅',
+    method: 'POST',
+    expected_fields: ['nom', 'telephone', 'wilaya', 'commune?', 'quantite?', 'prix_total?', 'lp_source?', 'livraison?']
+  });
+});
+
+// Stats Wakielmaodja seulement
+app.get('/admin/wakielmaodja/orders', (req, res) => {
+  const list = [...orders.values()]
+    .filter(o => o.brand === 'Wakielmaodja')
+    .sort((a, b) => b.createdAt - a.createdAt);
+
+  const stats = {
+    total: list.length,
+    pending: list.filter(o => o.status === 'pending').length,
+    confirmed: list.filter(o => o.status === 'confirmed').length,
+    revenue_confirmed: list
+      .filter(o => o.status === 'confirmed' || o.status === 'delivered')
+      .reduce((s, o) => s + (o.total || 0), 0)
+  };
+
+  // Stats par source LP
+  const bySource = {};
+  list.forEach(o => {
+    const src = o.lpSource || 'unknown';
+    if (!bySource[src]) bySource[src] = { count: 0, revenue: 0 };
+    bySource[src].count++;
+    bySource[src].revenue += o.total || 0;
+  });
+
+  res.json({ stats, bySource, orders: list.slice(0, 100) });
+});app.listen(CONFIG.PORT, () => {
   console.log(`
 ╔══════════════════════════════════════════════╗
 ║   🤖 واقع الموجة WhatsApp Bot v2.0 — ACTIF   ║
