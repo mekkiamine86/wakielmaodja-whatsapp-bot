@@ -2,7 +2,7 @@
  * ============================================================
  * واقع الموجة — WhatsApp Business AI Bot v2.0
  * Langue principale : Darija (عربية جزائرية) + Français
- * IA : Claude claude-opus-4-6 — Expert Closing COD Algérie
+ * IA : Claude claude- — Expert Closing COD Algérie
  * Stack : Node.js + Express + WhatsApp Cloud API (Meta)
  * ============================================================
  */
@@ -555,7 +555,7 @@ async function getAIResponse(userMessage, session, productContext) {
   const history = session.history.slice(-10);
 
   const response = await anthropic.messages.create({
-    model     : 'claude-opus-4-6',
+    model     : 'claude-',
     max_tokens: 350,
     system    : systemPrompt,
     messages  : [...history, { role: 'user', content: userMessage }]
@@ -1154,7 +1154,7 @@ app.get('/admin/wakielmaodja/orders', (req, res) => {
 ╠══════════════════════════════════════════════╣
 ║  Port      : ${CONFIG.PORT}                            ║
 ║  Langue    : Darija (عربية جزائرية) + FR    ║
-║  IA        : Claude claude-opus-4-6                  ║
+║  IA        : Claude claude-                  ║
 ║  Webhook   : GET/POST /webhook               ║
 ║  Admin     : GET /admin/orders               ║
 ║  Health    : GET /health                     ║
